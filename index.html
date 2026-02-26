@@ -2,26 +2,30 @@
 <html lang="pt-br">
 <head>
 <meta charset="UTF-8">
-<title>Futebol 3D 1v1 Multiplayer</title>
+<title>Futebol 3D 1v1 ULTRA</title>
 <style>
-body { margin:0; overflow:hidden; background:#0b6623; }
-#placar {
-    position:absolute;
-    top:10px;
-    left:50%;
-    transform:translateX(-50%);
-    color:white;
-    font-size:28px;
-    font-family:Arial;
-    background:rgba(0,0,0,0.6);
-    padding:10px 20px;
-    border-radius:10px;
+body { margin:0; overflow:hidden; background:#111; }
+#ui {
+ position:absolute;
+ top:10px;
+ left:50%;
+ transform:translateX(-50%);
+ color:white;
+ font-size:22px;
+ font-family:Arial;
+ background:rgba(0,0,0,0.6);
+ padding:10px 20px;
+ border-radius:10px;
+ text-align:center;
 }
 </style>
 </head>
 <body>
 
-<div id="placar">🔵 0 x 0 🔴</div>
+<div id="ui">
+🔵 0 x 0 🔴 <br>
+⏱️ <span id="time">60</span>
+</div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script>
@@ -32,169 +36,184 @@ let renderer = new THREE.WebGLRenderer({antialias:true});
 renderer.setSize(window.innerWidth, window.innerHeight);
 document.body.appendChild(renderer.domElement);
 
-// Luz
-let light = new THREE.DirectionalLight(0xffffff,1);
-light.position.set(0,50,20);
-scene.add(light);
+// LUZ (dia/noite)
+let sun = new THREE.DirectionalLight(0xffffff,1);
+sun.position.set(0,50,20);
+scene.add(sun);
 
-// Campo
+// CAMPO
 let field = new THREE.Mesh(
-    new THREE.PlaneGeometry(120,70),
-    new THREE.MeshPhongMaterial({color:0x1e7a1e})
+ new THREE.PlaneGeometry(120,70),
+ new THREE.MeshPhongMaterial({color:0x1e7a1e})
 );
 field.rotation.x = -Math.PI/2;
 scene.add(field);
 
-// Linha central
-let lineMaterial = new THREE.LineBasicMaterial({color:0xffffff});
-let lineGeometry = new THREE.BufferGeometry().setFromPoints([
-    new THREE.Vector3(-60,0.1,0),
-    new THREE.Vector3(60,0.1,0)
-]);
-let midfield = new THREE.Line(lineGeometry,lineMaterial);
-scene.add(midfield);
+// ESTÁDIO
+let stadium = new THREE.Mesh(
+ new THREE.BoxGeometry(150,30,100),
+ new THREE.MeshPhongMaterial({color:0x444444, side:THREE.BackSide})
+);
+stadium.position.y = 15;
+scene.add(stadium);
 
-// Gol
-function criarGol(zPos){
-    let group = new THREE.Group();
-    let material = new THREE.MeshPhongMaterial({color:0xffffff});
-    let post1 = new THREE.Mesh(new THREE.BoxGeometry(1,8,1),material);
-    let post2 = post1.clone();
-    let topBar = new THREE.Mesh(new THREE.BoxGeometry(20,1,1),material);
-
-    post1.position.set(-10,4,zPos);
-    post2.position.set(10,4,zPos);
-    topBar.position.set(0,8,zPos);
-
-    group.add(post1,post2,topBar);
-    return group;
+// GOL
+function criarGol(z){
+ let mat = new THREE.MeshPhongMaterial({color:0xffffff});
+ let g = new THREE.Group();
+ let p1 = new THREE.Mesh(new THREE.BoxGeometry(1,8,1),mat);
+ let p2 = p1.clone();
+ let top = new THREE.Mesh(new THREE.BoxGeometry(20,1,1),mat);
+ p1.position.set(-10,4,z);
+ p2.position.set(10,4,z);
+ top.position.set(0,8,z);
+ g.add(p1,p2,top);
+ return g;
 }
-
 scene.add(criarGol(-35));
 scene.add(criarGol(35));
 
-// Criar jogador
+// JOGADOR
 function criarJogador(cor){
-    let group = new THREE.Group();
-    let material = new THREE.MeshPhongMaterial({color:cor});
+ let g = new THREE.Group();
+ let mat = new THREE.MeshPhongMaterial({color:cor});
 
-    let body = new THREE.Mesh(new THREE.BoxGeometry(3,6,2),material);
-    body.position.y = 6;
+ let body = new THREE.Mesh(new THREE.BoxGeometry(3,6,2),mat);
+ body.position.y=6;
+ let head = new THREE.Mesh(new THREE.SphereGeometry(1.5,16,16),mat);
+ head.position.y=10;
 
-    let head = new THREE.Mesh(new THREE.SphereGeometry(1.5,16,16),material);
-    head.position.y = 10;
+ let armL = new THREE.Mesh(new THREE.BoxGeometry(1,4,1),mat);
+ let armR = armL.clone();
+ armL.position.set(-2.5,6,0);
+ armR.position.set(2.5,6,0);
 
-    let arm1 = new THREE.Mesh(new THREE.BoxGeometry(1,4,1),material);
-    arm1.position.set(-2.5,6,0);
+ let legL = new THREE.Mesh(new THREE.BoxGeometry(1,5,1),mat);
+ let legR = legL.clone();
+ legL.position.set(-1,2.5,0);
+ legR.position.set(1,2.5,0);
 
-    let arm2 = arm1.clone();
-    arm2.position.x = 2.5;
-
-    let leg1 = new THREE.Mesh(new THREE.BoxGeometry(1,5,1),material);
-    leg1.position.set(-1,2.5,0);
-
-    let leg2 = leg1.clone();
-    leg2.position.x = 1;
-
-    group.add(body,head,arm1,arm2,leg1,leg2);
-    return group;
+ g.add(body,head,armL,armR,legL,legR);
+ g.userData = {armL,armR,legL,legR,anim:0};
+ return g;
 }
 
-let player1 = criarJogador(0x0066ff);
-player1.position.set(0,0,20);
-scene.add(player1);
+let p1 = criarJogador(0x0066ff);
+p1.position.set(0,0,20);
+scene.add(p1);
 
-let player2 = criarJogador(0xff2222);
-player2.position.set(0,0,-20);
-scene.add(player2);
+let p2 = criarJogador(0xff2222);
+p2.position.set(0,0,-20);
+scene.add(p2);
 
-// Bola
+// GOLEIROS
+let gk1 = criarJogador(0xffff00);
+gk1.scale.set(0.7,0.7,0.7);
+gk1.position.set(0,0,32);
+scene.add(gk1);
+
+let gk2 = criarJogador(0xffff00);
+gk2.scale.set(0.7,0.7,0.7);
+gk2.position.set(0,0,-32);
+scene.add(gk2);
+
+// BOLA
 let ball = new THREE.Mesh(
-    new THREE.SphereGeometry(1.5,32,32),
-    new THREE.MeshPhongMaterial({color:0xffffff})
+ new THREE.SphereGeometry(1.5,32,32),
+ new THREE.MeshPhongMaterial({color:0xffffff})
 );
 ball.position.set(0,1.5,0);
 scene.add(ball);
 
-let ballVelocity = new THREE.Vector3();
-let score1 = 0;
-let score2 = 0;
+let ballVel = new THREE.Vector3();
+let score1=0, score2=0;
 
-// Controles
-let keys = {};
+// CONTROLES
+let keys={};
 document.addEventListener("keydown",e=>keys[e.key]=true);
 document.addEventListener("keyup",e=>keys[e.key]=false);
 
-// Câmera
-camera.position.set(0,60,60);
+// CÂMERA ESTILO TRANSMISSÃO
+camera.position.set(0,50,70);
 camera.lookAt(0,0,0);
 
-// Movimento
-function moverJogador(jogador, controles){
-    if(keys[controles.left]) jogador.position.x -= 0.7;
-    if(keys[controles.right]) jogador.position.x += 0.7;
-    if(keys[controles.up]) jogador.position.z -= 0.7;
-    if(keys[controles.down]) jogador.position.z += 0.7;
+// TEMPO
+let time=60;
+setInterval(()=>{
+ if(time>0) time--;
+ document.getElementById("time").innerText=time;
+ if(time==0){
+  alert("Fim de jogo!");
+  location.reload();
+ }
+},1000);
 
-    jogador.position.x = Math.max(-58, Math.min(58, jogador.position.x));
-    jogador.position.z = Math.max(-38, Math.min(38, jogador.position.z));
+// ANIMAÇÃO DE CORRIDA
+function animar(j){
+ j.userData.anim+=0.2;
+ let a=Math.sin(j.userData.anim)*0.8;
+ j.userData.armL.rotation.x=a;
+ j.userData.armR.rotation.x=-a;
+ j.userData.legL.rotation.x=-a;
+ j.userData.legR.rotation.x=a;
+}
 
-    if(keys[controles.kick]){
-        let dist = jogador.position.distanceTo(ball.position);
-        if(dist < 4){
-            let dir = new THREE.Vector3()
-                .subVectors(ball.position, jogador.position)
-                .normalize();
-            ballVelocity = dir.multiplyScalar(2.5);
-        }
-    }
+// MOVIMENTO
+function mover(j,ctrl){
+ let moving=false;
+ if(keys[ctrl.left]){ j.position.x-=0.7; moving=true; }
+ if(keys[ctrl.right]){ j.position.x+=0.7; moving=true; }
+ if(keys[ctrl.up]){ j.position.z-=0.7; moving=true; }
+ if(keys[ctrl.down]){ j.position.z+=0.7; moving=true; }
+
+ if(moving) animar(j);
+
+ if(keys[ctrl.kick]){
+  if(j.position.distanceTo(ball.position)<4){
+   let dir=new THREE.Vector3().subVectors(ball.position,j.position).normalize();
+   ballVel=dir.multiplyScalar(3);
+  }
+ }
 }
 
 function update(){
 
-    moverJogador(player1,{
-        left:"a", right:"d", up:"w", down:"s", kick:"q"
-    });
+ mover(p1,{left:"a",right:"d",up:"w",down:"s",kick:"q"});
+ mover(p2,{left:"ArrowLeft",right:"ArrowRight",up:"ArrowUp",down:"ArrowDown",kick:" "});
 
-    moverJogador(player2,{
-        left:"ArrowLeft", right:"ArrowRight",
-        up:"ArrowUp", down:"ArrowDown",
-        kick:" "
-    });
+ // goleiros seguem bola no eixo X
+ gk1.position.x = THREE.MathUtils.lerp(gk1.position.x, ball.position.x, 0.05);
+ gk2.position.x = THREE.MathUtils.lerp(gk2.position.x, ball.position.x, 0.05);
 
-    // Física bola
-    ball.position.add(ballVelocity);
-    ballVelocity.multiplyScalar(0.98);
+ ball.position.add(ballVel);
+ ballVel.multiplyScalar(0.98);
 
-    ball.position.x = Math.max(-58, Math.min(58, ball.position.x));
-    ball.position.z = Math.max(-38, Math.min(38, ball.position.z));
+ // gols
+ if(ball.position.z<-34 && Math.abs(ball.position.x)<10){
+  score1++; reset();
+ }
+ if(ball.position.z>34 && Math.abs(ball.position.x)<10){
+  score2++; reset();
+ }
 
-    // Gol
-    if(ball.position.z < -34 && Math.abs(ball.position.x) < 10){
-        score1++;
-        reset();
-    }
+ document.getElementById("ui").innerHTML=
+ "🔵 "+score1+" x "+score2+" 🔴<br>⏱️ "+time;
 
-    if(ball.position.z > 34 && Math.abs(ball.position.x) < 10){
-        score2++;
-        reset();
-    }
-
-    document.getElementById("placar").innerText =
-        "🔵 " + score1 + " x " + score2 + " 🔴";
+ // dia/noite automático
+ sun.intensity = 0.5 + Math.sin(Date.now()*0.0005)*0.5;
 }
 
 function reset(){
-    ball.position.set(0,1.5,0);
-    ballVelocity.set(0,0,0);
-    player1.position.set(0,0,20);
-    player2.position.set(0,0,-20);
+ ball.position.set(0,1.5,0);
+ ballVel.set(0,0,0);
+ p1.position.set(0,0,20);
+ p2.position.set(0,0,-20);
 }
 
 function animate(){
-    requestAnimationFrame(animate);
-    update();
-    renderer.render(scene,camera);
+ requestAnimationFrame(animate);
+ update();
+ renderer.render(scene,camera);
 }
 animate();
 
